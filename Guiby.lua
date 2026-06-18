@@ -147,10 +147,9 @@ minBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- FITUR INSTANT KILL V2 (OPTIMIZED & INSTANT)
+-- FITUR INSTANT KILL V2 (SISTEM LOOPING ULTRA FAST)
 ---------------------------------------------------------
 local isToggled = false
-local childAddedConnection = nil
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(1, -24, 0, 30)
@@ -166,64 +165,59 @@ toggleBtn.Parent = main
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
 animStroke(toggleBtn, 1)
 
--- Modifikasi Eksekusi: Menghilangkan loop tunggu agar langsung membunuh target
-local function killEnemy(enemy)
-    if not isToggled then return end
-    
-    -- Menggunakan task.spawn agar instan tanpa masuk daftar antrean frame defer
-    task.spawn(function()
-        -- Langsung tembak komponen utama (Tanpa nunggu loop)
-        local humanoid = enemy:FindFirstChildOfClass("Humanoid")
-        local rootPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("Torso") or enemy:FindFirstChild("UpperTorso")
-        
-        -- Metode Rig Breaking Instan (Paling cepat direspon server)
-        local head = enemy:FindFirstChild("Head")
-        if head then
-            local neck = head:FindFirstChild("Neck") or head:FindFirstChildOfClass("Motor6D") or head:FindFirstChildOfClass("Weld")
-            if neck then 
-                neck:Destroy() 
-            end
-        end
-        
-        -- Metode Tambahan Pararel (Mengosongkan HP)
-        if humanoid then
-            humanoid.Health = 0
-        end
-        
-        -- Metode Void Teleport instan jika rig belum ter-replicated sepenuhnya
-        if rootPart and rootPart:IsA("BasePart") then
-            rootPart.CFrame = CFrame.new(0, -99999, 0)
-        end
-    end)
-end
-
 local function getEnemiesFolder()
     local alives = workspace:WaitForChild("Alives", 5)
     return alives and alives:WaitForChild("Enemies", 5) or nil
 end
 
-local function toggleInstantKill(state)
-    if state then
-        local enemiesFolder = getEnemiesFolder()
-        if enemiesFolder then
-            -- Kill musuh lama yang sudah ada di folder
-            for _, enemy in ipairs(enemiesFolder:GetChildren()) do
-                killEnemy(enemy)
-            end
-            
-            if childAddedConnection then childAddedConnection:Disconnect() end
-            -- Menggunakan langsung killEnemy begitu anak/musuh baru ditambahkan ke folder
-            childAddedConnection = enemiesFolder.ChildAdded:Connect(killEnemy)
-        else
-            warn("Folder Alives.Enemies gagal ditemukan!")
-        end
-    else
-        if childAddedConnection then
-            childAddedConnection:Disconnect()
-            childAddedConnection = nil
+-- Eksekusi pembunuhan instan tanpa penundaan internal
+local function killEnemy(enemy)
+    local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+    local rootPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("Torso") or enemy:FindFirstChild("UpperTorso")
+    
+    -- Metode 1: Hancurkan Neck joint (Instan mati secara struktural)
+    local head = enemy:FindFirstChild("Head")
+    if head then
+        local neck = head:FindFirstChild("Neck") or head:FindFirstChildOfClass("Motor6D") or head:FindFirstChildOfClass("Weld")
+        if neck then 
+            neck:Destroy() 
         end
     end
+    
+    -- Metode 2: Set Health ke 0
+    if humanoid and humanoid.Health > 0 then
+        humanoid.Health = 0
+    end
+    
+    -- Metode 3: Teleport part ke Void jika server lambat memperbarui status mati
+    if rootPart and rootPart:IsA("BasePart") then
+        rootPart.CFrame = CFrame.new(0, -99999, 0)
+    end
 end
+
+-- Thread Loop Utama yang berjalan di background
+task.spawn(function()
+    while true do
+        task.wait(0.01) -- Loop berjalan sangat cepat setiap 10 milidetik
+        if isToggled then
+            local enemiesFolder = getEnemiesFolder()
+            if enemiesFolder then
+                local enemies = enemiesFolder:GetChildren()
+                for i = 1, #enemies do
+                    local enemy = enemies[i]
+                    -- Hanya eksekusi jika musuh valid dan belum mati
+                    local hum = enemy:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        killEnemy(enemy)
+                    elseif not hum then
+                        -- Jaga-jaga jika humanoid belum termuat sepenuhnya
+                        killEnemy(enemy)
+                    end
+                end
+            end
+        end
+    end
+end)
 
 toggleBtn.MouseButton1Click:Connect(function()
     isToggled = not isToggled
@@ -231,12 +225,10 @@ toggleBtn.MouseButton1Click:Connect(function()
         tweenService:Create(toggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 60, 45)}):Play()
         toggleBtn.Text = "Instant Kill: ON"
         toggleBtn.TextColor3 = Color3.fromRGB(80, 220, 120)
-        toggleInstantKill(true)
     else
         tweenService:Create(toggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
         toggleBtn.Text = "Instant Kill: OFF"
         toggleBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
-        toggleInstantKill(false)
     end
 end)
 
