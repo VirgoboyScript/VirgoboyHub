@@ -30,6 +30,10 @@ local listMap = {
         Nama = "🎲 Roll For UGC",
         Script = [[loadstring(game:HttpGet("https://pastebin.com/raw/Ny6T6dwp"))()]]
     },
+    {
+        Nama = "⛄ Tamagochi",
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/main/Tamagochi.lua"))()]]
+    },
     -- Kamu bisa tambah map baru lagi di bawah ini dengan format yang sama:
     -- {
     --     Nama = "Nama Map Kamu",
