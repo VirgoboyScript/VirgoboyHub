@@ -16,7 +16,7 @@ end
 local listMap = {
     {
         Nama = "🕷 Guiby: Monster vs Bayi",
-        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/main/Guiby.lua"))()]]
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/VirgoboyHub/refs/heads/main/Guiby.lua"))()]]
     },
     {
         Nama = "👻 The Morgue Shift",
