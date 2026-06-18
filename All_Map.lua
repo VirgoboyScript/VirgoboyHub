@@ -20,7 +20,7 @@ local listMap = {
     },
     {
         Nama = "👻 The Morgue Shift",
-        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/main/TMS_Wowo.lua"))()]]
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/VirgoboyHub/main/TMS_Wowo.lua"))()]]
     },
     {
         Nama = "🦁 BBC Wonder Chase",
