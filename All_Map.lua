@@ -34,6 +34,10 @@ local listMap = {
         Nama = "⛄ Tamagochi",
         Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/main/Tamagochi.lua"))()]]
     },
+    {
+        Nama = "🏠 Benidorm Fun Town Tycoon",
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/VirgoboyHub/refs/heads/main/Benidrom.lua"))()]]
+    },
     -- Kamu bisa tambah map baru lagi di bawah ini dengan format yang sama:
     -- {
     --     Nama = "Nama Map Kamu",
