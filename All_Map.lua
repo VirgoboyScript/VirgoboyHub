@@ -89,6 +89,104 @@ local allGrads = {}
 local allStrokes = {}
 local themeObjectsToUpdate = {}
 
+local gui = Instance.new("ScreenGui")
+gui.Name = "VirgoboyHubUI"
+gui.ResetOnSpawn = false
+gui.Parent = coreGui
+
+-- ====================================================
+--  SISTEM NOTIFIKASI MODERN (NEW)
+-- ====================================================
+local notifyContainer = Instance.new("Frame")
+notifyContainer.Name = "NotifyContainer"
+notifyContainer.Size = UDim2.new(0, 260, 1, -20)
+notifyContainer.Position = UDim2.new(1, -270, 0, 10)
+notifyContainer.BackgroundTransparency = 1
+notifyContainer.ZIndex = 10
+notifyContainer.Parent = gui
+
+local notifyLayout = Instance.new("UIListLayout")
+notifyLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+notifyLayout.Padding = UDim.new(0, 8)
+notifyLayout.Parent = notifyContainer
+
+local function showNotify(titleText, descText, duration)
+    duration = duration or 3
+    
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(1, 0, 0, 50)
+    notif.BackgroundColor3 = COL_BG
+    notif.BackgroundTransparency = 0.1
+    notif.ClipsDescendants = true
+    notif.Parent = notifyContainer
+    
+    local nCorner = Instance.new("UICorner", notif)
+    nCorner.CornerRadius = UDim.new(0, 8)
+    
+    local s = Instance.new("UIStroke")
+    s.Thickness = 1.2
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Color = Color3.new(1, 1, 1)
+    s.Parent = notif
+    
+    local g = Instance.new("UIGradient")
+    g.Color = ColorThemes[currentThemeName].Sequence
+    g.Rotation = 45
+    g.Parent = s
+    table.insert(allGrads, g)
+    
+    local nTitle = Instance.new("TextLabel")
+    nTitle.Size = UDim2.new(1, -16, 0, 18)
+    nTitle.Position = UDim2.new(0, 10, 0, 6)
+    nTitle.BackgroundTransparency = 1
+    nTitle.Text = titleText
+    nTitle.Font = Enum.Font.GothamBlack
+    nTitle.TextSize = 11
+    nTitle.TextColor3 = COL_ACCENT
+    nTitle.TextXAlignment = Enum.TextXAlignment.Left
+    nTitle.Parent = notif
+    themeObjectsToUpdate[nTitle] = "TextColor3"
+    
+    local nDesc = Instance.new("TextLabel")
+    nDesc.Size = UDim2.new(1, -16, 0, 20)
+    nDesc.Position = UDim2.new(0, 10, 0, 22)
+    nDesc.BackgroundTransparency = 1
+    nDesc.Text = descText
+    nDesc.Font = Enum.Font.GothamBold
+    nDesc.TextSize = 9
+    nDesc.TextColor3 = TEXT_MAIN
+    nDesc.TextXAlignment = Enum.TextXAlignment.Left
+    nDesc.Parent = notif
+    
+    -- Progress Bar bawah untuk timer
+    local pBar = Instance.new("Frame")
+    pBar.Size = UDim2.new(1, 0, 0, 3)
+    pBar.Position = UDim2.new(0, 0, 1, -3)
+    pBar.BackgroundColor3 = COL_ACCENT
+    pBar.BorderSizePixel = 0
+    pBar.Parent = notif
+    themeObjectsToUpdate[pBar] = "BackgroundColor3"
+    
+    -- Animasi Masuk
+    notif.Position = UDim2.new(1, 50, 0, 0)
+    tweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+    tweenService:Create(pBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 3)}):Play()
+    
+    task.delay(duration, function()
+        if notif and notif.Parent then
+            local t = tweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 50, 0, 0)})
+            t:Play()
+            t.Completed:Connect(function()
+                -- Bersihkan gradient dari tracker loop runtime
+                local idx = table.find(allGrads, g)
+                if idx then table.remove(allGrads, idx) end
+                notif:Destroy()
+            end)
+        end
+    end)
+end
+-- ====================================================
+
 local function updateTheme(themeName)
     if not ColorThemes[themeName] then return end
     currentThemeName = themeName
@@ -125,11 +223,6 @@ local function animStroke(parent, thick)
     return s
 end
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "VirgoboyHubUI"
-gui.ResetOnSpawn = false
-gui.Parent = coreGui
-
 local FULL_H = 250
 local MINI_H = 42
 
@@ -137,7 +230,7 @@ local main = Instance.new("Frame")
 main.Size = UDim2.new(0, 340, 0, FULL_H)
 main.Position = UDim2.new(0.5, -170, 0.4, -FULL_H // 2)
 main.BackgroundColor3 = COL_BG
-main.BackgroundTransparency = 0.15 -- Ditingkatkan sedikit agar gambar background lebih pop-out
+main.BackgroundTransparency = 0.15
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
 main.Active = true
@@ -148,19 +241,18 @@ mainCorner.CornerRadius = UDim.new(0, 12)
 animStroke(main, 1.5)
 
 -- ====================================================
---  IMAGE BACKGROUND SYSTEM (NEW)
+--  IMAGE BACKGROUND SYSTEM
 -- ====================================================
 local mainBgImage = Instance.new("ImageLabel")
 mainBgImage.Size = UDim2.new(1, 0, 1, 0)
 mainBgImage.BackgroundTransparency = 1
 mainBgImage.Image = "rbxassetid://93224938541267"
 mainBgImage.ScaleType = Enum.ScaleType.Crop
-mainBgImage.ImageTransparency = 0.4 -- Transparansi awal (60% terlihat)
+mainBgImage.ImageTransparency = 0.4
 mainBgImage.ZIndex = 0
 mainBgImage.Parent = main
 
 Instance.new("UICorner", mainBgImage).CornerRadius = UDim.new(0, 12)
--- ====================================================
 
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1, 0, 0, MINI_H)
@@ -233,7 +325,7 @@ minBtn.MouseLeave:Connect(function()
     tweenService:Create(minBtn, TweenInfo.new(0.15), {BackgroundColor3 = MIN_NORMAL}):Play()
 end)
 
-local savedTransparency = 0.4 -- Menyimpan transparansi asli sebelum minimize
+local savedTransparency = 0.4
 
 local function toggleMinimize()
     minimized = not minimized
@@ -241,7 +333,7 @@ local function toggleMinimize()
     if minimized then
         savedTransparency = mainBgImage.ImageTransparency
         header.Visible = false
-        mainBgImage.ImageTransparency = 1 -- Sembunyikan bg gambar utama agar tidak double dengan ikon
+        mainBgImage.ImageTransparency = 1
         
         for _, child in ipairs(main:GetChildren()) do
             if child:IsA("Frame") then
@@ -259,6 +351,7 @@ local function toggleMinimize()
         
         task.wait(0.2)
         minIcon.Visible = true
+        showNotify("UI Minimized", "Klik ikon bulat untuk membuka kembali panel.", 2)
     else
         minIcon.Visible = false
         mainBgImage.ImageTransparency = savedTransparency
@@ -278,18 +371,19 @@ local function toggleMinimize()
                 child.Visible = true
             end
         end
+        showNotify("UI Restored", "Virgoboy Hub kembali siap digunakan!", 2)
     end
 end
 
 minBtn.MouseButton1Click:Connect(toggleMinimize)
 minIcon.MouseButton1Click:Connect(toggleMinimize)
--- ====================================================
 
+-- ====================================================
 local sidebar = Instance.new("Frame")
 sidebar.Size = UDim2.new(0, 80, 1, -MINI_H - 10)
 sidebar.Position = UDim2.new(0, 10, 0, MINI_H)
 sidebar.BackgroundColor3 = COL_PANEL
-sidebar.BackgroundTransparency = 0.2 -- Sedikit transparan agar tembus pandang ke gambar background
+sidebar.BackgroundTransparency = 0.2
 sidebar.ZIndex = 2
 sidebar.Parent = main
 Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 8)
@@ -345,6 +439,7 @@ local function registerTab(name)
         end
         tweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2, BackgroundColor3 = COL_ACCENT, TextColor3 = TEXT_MAIN}):Play()
         pages[name].Visible = true
+        showNotify("Tab Changed", "Membuka halaman: " .. name, 1.5)
     end)
     
     tabs[name] = btn
@@ -461,6 +556,8 @@ for _, mapData in ipairs(listMap) do
     end)
 
     mapBtn.MouseButton1Click:Connect(function()
+        showNotify("Executing Script...", mapData.Nama, 3)
+        task.wait(0.5)
         task.spawn(function()
             pcall(function()
                 assert(loadstring(mapData.Script))()
@@ -471,7 +568,7 @@ for _, mapData in ipairs(listMap) do
 end
 
 ----------------------------------------------------
--- CONTENT: SETTING (Ditambah Slider Transparansi Background)
+-- CONTENT: SETTING
 ----------------------------------------------------
 local settingScroll = Instance.new("ScrollingFrame")
 settingScroll.Size = UDim2.new(1, 0, 1, 0)
@@ -553,6 +650,7 @@ local function createToggle(text, layoutOrder, defaultState, callback)
             btn.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
         end
         callback(defaultState)
+        showNotify("Feature Updated", text .. " diubah menjadi: " .. (defaultState and "AKTIF" or "NONAKTIF"), 2)
     end)
 end
 
@@ -619,11 +717,12 @@ for _, tName in ipairs(themeList) do
                 tBtn.BackgroundColor3 = COL_ACCENT
             end
         end
+        showNotify("Theme Applied", "Berhasil mengganti tema ke: " .. tName, 2)
     end)
 end
 
 -- ====================================================
---  MENU BARU: SLIDER TRANSPARANSI BACKGROUND (NEW)
+--  SLIDER TRANSPARANSI BACKGROUND
 -- ====================================================
 local sliderFrame = Instance.new("Frame")
 sliderFrame.Size = UDim2.new(1, 0, 0, 45)
@@ -656,7 +755,7 @@ sliderTrack.Parent = sliderFrame
 Instance.new("UICorner", sliderTrack).CornerRadius = UDim.new(0, 3)
 
 local sliderFill = Instance.new("Frame")
-sliderFill.Size = UDim2.new(0.6, 0, 1, 0) -- Default 60% terisi (0.4 ImageTransparency)
+sliderFill.Size = UDim2.new(0.6, 0, 1, 0)
 sliderFill.BackgroundColor3 = COL_ACCENT
 sliderFill.ZIndex = 2
 sliderFill.Parent = sliderTrack
@@ -672,7 +771,6 @@ sliderBtn.Parent = sliderTrack
 Instance.new("UICorner", sliderBtn).CornerRadius = UDim.new(0, 7)
 animStroke(sliderBtn, 1)
 
--- Logika Interaksi Slider (Support HP & Chromebook)
 local sliderDragging = false
 
 local function updateSlider(inputObj)
@@ -683,11 +781,9 @@ local function updateSlider(inputObj)
     sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
     sliderBtn.Position = UDim2.new(percentage, -7, 0.5, -7)
     
-    -- Konversi persentase ke ImageTransparency (0 = Terlihat Jelas, 1 = Hilang)
     local imageTrans = 1 - percentage
     mainBgImage.ImageTransparency = imageTrans
     
-    -- Tampilkan teks info kekuatan persentase transparansi gambar
     sliderLabel.Text = "👁 Transparansi Background: " .. math.floor(percentage * 100) .. "%"
 end
 
@@ -705,7 +801,11 @@ end)
 
 userInputService.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        sliderDragging = false
+        if sliderDragging then
+            sliderDragging = false
+            local currentVal = math.floor(sliderFill.Size.X.Scale * 100)
+            showNotify("Opacity Changed", "Transparansi diatur ke " .. currentVal .. "%", 1.5)
+        end
     end
 end)
 -- ====================================================
@@ -723,6 +823,8 @@ closeHubBtn.Parent = settingScroll
 Instance.new("UICorner", closeHubBtn).CornerRadius = UDim.new(0, 6)
 
 closeHubBtn.MouseButton1Click:Connect(function()
+    showNotify("Shutting Down", "Menutup Virgoboy Hub...", 2)
+    task.wait(0.4)
     gui:Destroy()
 end)
 
@@ -747,6 +849,7 @@ localPlayer.Idled:Connect(function()
             virtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
             task.wait(1)
             virtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+            showNotify("Anti-AFK", "Gerakan pencegah diskoneksi berhasil dipicu.", 1.5)
         end)
     end
 end)
@@ -756,6 +859,7 @@ local teleportService = cloneref(game:GetService("TeleportService"))
 
 guiService.ErrorMessageChanged:Connect(function()
     if autoReconnectEnabled then
+        showNotify("Disconnect Detected", "Menghubungkan ulang dalam 2 detik...", 5)
         task.wait(2)
         pcall(function()
             if #players:GetPlayers() <= 1 then
@@ -821,3 +925,6 @@ runService.RenderStepped:Connect(function()
         g.Offset = off
     end
 end)
+
+-- Notifikasi pertama tanda Hub sukses dimuat
+showNotify("Virgoboy Hub Loaded", "Selamat bermain, " .. localPlayer.DisplayName .. "!", 3)
