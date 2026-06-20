@@ -51,7 +51,7 @@ gui.Name = "AceSniperUI"
 gui.ResetOnSpawn = false
 gui.Parent = coreGui
 
-local FULL_H = 235 -- Dinaikkan dari 210 biar space muat buat timer baru
+local FULL_H = 210
 local MINI_H = 42
 
 -- Main Frame
@@ -147,9 +147,10 @@ minBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- FITUR INSTANT KILL V2 (SISTEM LOOPING ULTRA FAST)
+-- FITUR INSTANT KILL V2 (SISTEM LOOPING ULTRA FAST) + TIMER
 ---------------------------------------------------------
 local isToggled = false
+local killStartTime = 0
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(1, -24, 0, 30)
@@ -170,10 +171,12 @@ local function getEnemiesFolder()
     return alives and alives:WaitForChild("Enemies", 5) or nil
 end
 
+-- Eksekusi pembunuhan instan tanpa penundaan internal
 local function killEnemy(enemy)
     local humanoid = enemy:FindFirstChildOfClass("Humanoid")
     local rootPart = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("Torso") or enemy:FindFirstChild("UpperTorso")
     
+    -- Metode 1: Hancurkan Neck joint (Instan mati secara struktural)
     local head = enemy:FindFirstChild("Head")
     if head then
         local neck = head:FindFirstChild("Neck") or head:FindFirstChildOfClass("Motor6D") or head:FindFirstChildOfClass("Weld")
@@ -182,28 +185,33 @@ local function killEnemy(enemy)
         end
     end
     
+    -- Metode 2: Set Health ke 0
     if humanoid and humanoid.Health > 0 then
         humanoid.Health = 0
     end
     
+    -- Metode 3: Teleport part ke Void jika server lambat memperbarui status mati
     if rootPart and rootPart:IsA("BasePart") then
         rootPart.CFrame = CFrame.new(0, -99999, 0)
     end
 end
 
+-- Thread Loop Utama yang berjalan di background
 task.spawn(function()
     while true do
-        task.wait(0.01)
+        task.wait(0.01) -- Loop berjalan sangat cepat setiap 10 milidetik
         if isToggled then
             local enemiesFolder = getEnemiesFolder()
             if enemiesFolder then
                 local enemies = enemiesFolder:GetChildren()
                 for i = 1, #enemies do
                     local enemy = enemies[i]
+                    -- Hanya eksekusi jika musuh valid dan belum mati
                     local hum = enemy:FindFirstChildOfClass("Humanoid")
                     if hum and hum.Health > 0 then
                         killEnemy(enemy)
                     elseif not hum then
+                        -- Jaga-jaga jika humanoid belum termuat sepenuhnya
                         killEnemy(enemy)
                     end
                 end
@@ -212,11 +220,25 @@ task.spawn(function()
     end
 end)
 
+-- Thread Pengelola Timer Real-time
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if isToggled then
+            local elapsed = math.floor(os.clock() - killStartTime)
+            local minutes = math.floor(elapsed / 60)
+            local seconds = elapsed % 60
+            toggleBtn.Text = string.format("Efek ON dalam 1 menit (%02d:%02d)", minutes, seconds)
+        end
+    end
+end)
+
 toggleBtn.MouseButton1Click:Connect(function()
     isToggled = not isToggled
     if isToggled then
+        killStartTime = os.clock() -- Catat waktu mulai aktif
         tweenService:Create(toggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 60, 45)}):Play()
-        toggleBtn.Text = "Instant Kill: ON"
+        toggleBtn.Text = "Efek ON dalam 1 menit (00:00)"
         toggleBtn.TextColor3 = Color3.fromRGB(80, 220, 120)
     else
         tweenService:Create(toggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
@@ -460,9 +482,10 @@ local function teleportToNearestEnemy()
     end
 end
 
+-- Thread Loop untuk Auto Teleport saat Toggle ON
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.2) -- Loop deteksi jarak musuh terdekat setiap 200ms agar smooth & aman
         if isTpEnemyToggled then
             pcall(teleportToNearestEnemy)
         end
@@ -479,34 +502,6 @@ tpEnemyBtn.MouseButton1Click:Connect(function()
         tweenService:Create(tpEnemyBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
         tpEnemyBtn.Text = "TP to Enemy: OFF"
         tpEnemyBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
-    end
-end)
-
----------------------------------------------------------
--- FITUR PLAYTIME TIMER (BARU)
----------------------------------------------------------
-local timerLabel = Instance.new("TextLabel")
-timerLabel.Size = UDim2.new(1, -24, 0, 14)
-timerLabel.Position = UDim2.new(0, 12, 0, FULL_H - 24) -- Letak pas di bagian bawah frame
-timerLabel.BackgroundTransparency = 1
-timerLabel.Text = "Playtime: 00:00:00"
-timerLabel.Font = Enum.Font.GothamMedium
-timerLabel.TextSize = 9.5
-timerLabel.TextColor3 = Color3.fromRGB(140, 145, 150)
-timerLabel.TextXAlignment = Enum.TextXAlignment.Right -- Rata kanan biar rapi berdampingan dengan style UI-mu
-timerLabel.Parent = main
-
-local startTime = os.time()
-
-task.spawn(function()
-    while timerLabel and timerLabel.Parent do
-        local elapsed = os.time() - startTime
-        local hours = math.floor(elapsed / 3600)
-        local minutes = math.floor((elapsed % 3600) / 60)
-        local seconds = elapsed % 60
-        
-        timerLabel.Text = string.format("Playtime: %02d:%02d:%02d", hours, minutes, seconds)
-        task.wait(1)
     end
 end)
 
