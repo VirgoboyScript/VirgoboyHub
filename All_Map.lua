@@ -34,6 +34,10 @@ local listMap = {
         Nama = "🏠 Benidorm Fun Town Tycoon",
         Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/VirgoboyHub/refs/heads/main/Benidrom.lua"))()]]
     },
+    {
+        Nama = "😶‍🌫️ Pop Box",
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/refs/heads/main/Pop_Box.lua"))()]]
+    },
 }
 -- ====================================================
 
