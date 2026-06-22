@@ -541,10 +541,3 @@ do
         end
     end)
 end
-While true do
-local args = {
-	"GreenSpiderBack"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("_Index"):WaitForChild("sleitnick_net@0.1.0"):WaitForChild("net"):WaitForChild("RF/ClaimUGC"):InvokeServer(unpack(args))
-task.wait() 
-end
