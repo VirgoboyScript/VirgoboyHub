@@ -42,6 +42,10 @@ local listMap = {
         Nama = "🐠 Find Summer Seasouls",
         Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/VirgoboyHub/refs/heads/main/SummerSeasouls.lua"))()]]
     },
+    {
+        Nama = "🚗 Hyundai Gatcha",
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/refs/heads/main/HyundaiGatcha.lua"))()]]
+    },
 }
 -- ====================================================
 
