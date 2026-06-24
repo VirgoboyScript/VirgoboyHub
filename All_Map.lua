@@ -38,6 +38,10 @@ local listMap = {
         Nama = "😶‍🌫️ Pop Box",
         Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/Script/refs/heads/main/Pop_Box.lua"))()]]
     },
+    {
+        Nama = "🐠 Find Summer Seasouls",
+        Script = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/VirgoboyScript/VirgoboyHub/refs/heads/main/SummerSeasouls.lua"))()]]
+    },
 }
 -- ====================================================
 
