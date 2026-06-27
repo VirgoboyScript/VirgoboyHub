@@ -2,6 +2,62 @@ local coreGui = cloneref(game:GetService("CoreGui"))
 local userInputService = cloneref(game:GetService("UserInputService"))
 local tweenService = cloneref(game:GetService("TweenService"))
 local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- [VARIABEL GLOBAL BARU]
+_G.UseQuick = false
+_G.UseHeavy = false
+_G.UseSpecial = false
+local lQ, lH, lS = 0, 0, 0
+
+-- [FUNGSI HELPER UNTUK SKILL]
+local RSk = game:GetService("ReplicatedStorage"):WaitForChild("@rbxts/wcs:source/networking@GlobalEvents"):WaitForChild("requestSkill")
+local DmE = game:GetService("ReplicatedStorage"):WaitForChild("@rbxts/wcs:source/networking@GlobalEvents"):WaitForChild("damageDealt")
+local function getTarget()
+    local folder = workspace:FindFirstChild("Alives") and workspace.Alives:FindFirstChild("Enemies")
+    if not folder then return nil end
+    local closest, dist = nil, 500 -- Jarak pencarian 500
+    local myChar = Players.LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    for _, v in pairs(folder:GetChildren()) do
+        local hrp = v:FindFirstChild("HumanoidRootPart")
+        local hum = v:FindFirstChild("Humanoid")
+        if hrp and hum and hum.Health > 0 then
+            local d = (hrp.Position - myChar.HumanoidRootPart.Position).Magnitude
+            if d < dist then
+                closest = v
+                dist = d
+            end
+        end
+    end
+    return closest
+end
+local function getActiveSkill(slotName)
+    local localData = LP:FindFirstChild("LocalData")
+    if localData and localData:FindFirstChild("Inventory") then
+        local eq = localData.Inventory:FindFirstChild("EquippedSkills")
+        if eq and eq:FindFirstChild(slotName) and eq[slotName].Value ~= "" then return eq[slotName].Value end
+    end
+    return (slotName == "Light" and "PunchCombo_Default") or (slotName == "Heavy" and "Slam_Default") or "Kameameah_Default"
+end
+
+local function fireWCSSkill(n, c) 
+    if not n or n == "" then return end 
+    print("Mencoba mengirim skill: " .. n) -- Cek F9, kalau ini muncul berarti fungsi dipanggil
+    local RSk = game:GetService("ReplicatedStorage"):FindFirstChild("@rbxts/wcs:source/networking@GlobalEvents") and game:GetService("ReplicatedStorage")["@rbxts/wcs:source/networking@GlobalEvents"]:FindFirstChild("requestSkill")
+    local DmE = game:GetService("ReplicatedStorage"):FindFirstChild("@rbxts/wcs:source/networking@GlobalEvents") and game:GetService("ReplicatedStorage")["@rbxts/wcs:source/networking@GlobalEvents"]:FindFirstChild("damageDealt")
+    
+    if RSk then
+        local h, f = string.char(#n) .. "\x00\x00\x00", "\x01\x00\x00\x00\x00" 
+        pcall(function() 
+            for i = 1, c do 
+                RSk:FireServer({buffer = buffer.fromstring(h .. n .. f), blobs = {}}) 
+                if DmE then firesignal(DmE.OnClientEvent, n, "Skill", 20) end
+            end 
+        end)
+    end
+end
 
 -- Hapus UI lama jika ada
 if coreGui:FindFirstChild("AceSniperUI") then
@@ -51,7 +107,7 @@ gui.Name = "AceSniperUI"
 gui.ResetOnSpawn = false
 gui.Parent = coreGui
 
-local FULL_H = 210
+local FULL_H = 350 -- Dinaikkan dari 210 untuk menampung tombol baru
 local MINI_H = 42
 
 -- Main Frame
@@ -345,13 +401,165 @@ chestBtn.MouseButton1Click:Connect(function()
 end)
 
 ---------------------------------------------------------
--- FITUR WALKSPEED SLIDER
+-- FITUR CLOSE SPAWNER (CAPTUREZONE AUTO TELEPORT)
+---------------------------------------------------------
+local isCloseSpawnerToggled = false
+local closeSpawnerBtn = Instance.new("TextButton")
+closeSpawnerBtn.Size = UDim2.new(1, -24, 0, 30)
+closeSpawnerBtn.Position = UDim2.new(0, 12, 0, 114) -- Ditempatkan di atas WalkSpeed
+closeSpawnerBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+closeSpawnerBtn.Text = "Close Spawner: OFF"
+closeSpawnerBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
+closeSpawnerBtn.Font = Enum.Font.GothamBold
+closeSpawnerBtn.TextSize = 12
+closeSpawnerBtn.BorderSizePixel = 0
+closeSpawnerBtn.AutoButtonColor = false
+closeSpawnerBtn.Parent = main
+Instance.new("UICorner", closeSpawnerBtn).CornerRadius = UDim.new(0, 6)
+animStroke(closeSpawnerBtn, 1)
+
+local function isRealActive(part)
+    if part.Transparency >= 1 then return false end
+    if part.Position.Y < -500 then return false end
+    return true
+end
+
+local function getNextActiveCenter(rootPart)
+    local targets = {}
+    for _, desc in pairs(workspace:GetDescendants()) do
+        if desc.Name == "CaptureZone" then
+            local centerPart = desc:FindFirstChild("Center")
+            if centerPart and centerPart:IsA("BasePart") and centerPart:IsDescendantOf(workspace) then
+                if isRealActive(centerPart) then
+                    local distance = (centerPart.Position - rootPart.Position).Magnitude
+                    if distance > 10 then
+                        table.insert(targets, {part = centerPart, dist = distance})
+                    end
+                end
+            end
+        end
+    end
+    
+    if #targets > 0 then
+        table.sort(targets, function(a, b)
+            return a.dist < b.dist
+        end)
+        return targets[1].part
+    end
+    return nil
+end
+
+local function runCloseSpawner()
+    local lp = Players.LocalPlayer
+    local character = lp.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if not rootPart or not humanoid then return end
+    
+    local targetPart = getNextActiveCenter(rootPart)
+    if targetPart then
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        rootPart.RotVelocity = Vector3.new(0, 0, 0)
+        
+        rootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
+        
+        task.wait(0.05)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        humanoid.PlatformStand = false
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(6) -- Berjalan setiap 1 detik jika toggle aktif
+        if isCloseSpawnerToggled then
+            pcall(runCloseSpawner)
+        end
+    end
+end)
+
+closeSpawnerBtn.MouseButton1Click:Connect(function()
+    isCloseSpawnerToggled = not isCloseSpawnerToggled
+    if isCloseSpawnerToggled then
+        tweenService:Create(closeSpawnerBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 60, 45)}):Play()
+        closeSpawnerBtn.Text = "Close Spawner: ON"
+        closeSpawnerBtn.TextColor3 = Color3.fromRGB(80, 220, 120)
+    else
+        tweenService:Create(closeSpawnerBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
+        closeSpawnerBtn.Text = "Close Spawner: OFF"
+        closeSpawnerBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
+    end
+end)
+---------------------------------------------------------
+-- FITUR Auto Klik Tombol Klaim (UGC CLAIM)
+---------------------------------------------------------
+local running = false 
+local vim = game:GetService("VirtualInputManager")
+
+local autoClickBtn = Instance.new("TextButton")
+autoClickBtn.Size = UDim2.new(1, -24, 0, 30)
+autoClickBtn.Position = UDim2.new(0, 12, 0, 150)
+autoClickBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40) -- Warna gelap (OFF)
+autoClickBtn.Text = "Auto Klik Tombol Klaim: OFF"
+autoClickBtn.TextColor3 = Color3.fromRGB(220, 80, 80) -- Warna merah (OFF)
+autoClickBtn.Font = Enum.Font.GothamBold
+autoClickBtn.TextSize = 12
+autoClickBtn.BorderSizePixel = 0
+autoClickBtn.AutoButtonColor = false
+autoClickBtn.Parent = main
+Instance.new("UICorner", autoClickBtn).CornerRadius = UDim.new(0, 6)
+animStroke(autoClickBtn, 1)
+
+local function simulateManualClick(button)
+    local absPos = button.AbsolutePosition
+    local absSize = button.AbsoluteSize
+    local clickX = absPos.X + (absSize.X / 2)
+    local clickY = absPos.Y + (absSize.Y / 2)
+    
+    pcall(function()
+        vim:SendMouseButtonEvent(clickX, clickY, 0, true, game, 1)
+        task.wait(0.05)
+        vim:SendMouseButtonEvent(clickX, clickY, 0, false, game, 1)
+    end)
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if running then
+            local player = Players.LocalPlayer
+            local playerGui = player and player:FindFirstChild("PlayerGui")
+            local lobbyUI = playerGui and playerGui:FindFirstChild("LobbyUI")
+            local ugcProgression = lobbyUI and lobbyUI:FindFirstChild("UGCProgression")
+            local bottomHolder = ugcProgression and ugcProgression:FindFirstChild("BottomHolder")
+            local claimableBtn = bottomHolder and bottomHolder:FindFirstChild("ClaimableBtn")
+            
+            if claimableBtn and claimableBtn.Visible and claimableBtn.AbsoluteSize.X > 0 then
+                if bottomHolder.Visible and ugcProgression.Visible and lobbyUI.Enabled then
+                    simulateManualClick(claimableBtn)
+                end
+            end
+        end
+    end
+end)
+
+autoClickBtn.MouseButton1Click:Connect(function()
+    running = not running
+    autoClickBtn.Text = running and "Auto Klik Tombol Klaim: ON" or "Auto Klik Tombol Klaim: OFF"
+    autoClickBtn.TextColor3 = running and Color3.fromRGB(80, 220, 120) or Color3.fromRGB(220, 80, 80)
+    autoClickBtn.BackgroundColor3 = running and Color3.fromRGB(40, 60, 45) or Color3.fromRGB(35, 35, 40)
+end)
+---------------------------------------------------------
+-- FITUR WALKSPEED SLIDER (POSISI DIGESER KE BAWAH)
 ---------------------------------------------------------
 local targetWalkSpeed = 16
 
 local wsLabel = Instance.new("TextLabel")
 wsLabel.Size = UDim2.new(1, -24, 0, 14)
-wsLabel.Position = UDim2.new(0, 12, 0, 116)
+wsLabel.Position = UDim2.new(0, 12, 0, 180) -- Digeser ke bawah
 wsLabel.BackgroundTransparency = 1
 wsLabel.Text = "WalkSpeed: 16"
 wsLabel.Font = Enum.Font.GothamBold
@@ -362,7 +570,7 @@ wsLabel.Parent = main
 
 local sliderMain = Instance.new("Frame")
 sliderMain.Size = UDim2.new(1, -24, 0, 6)
-sliderMain.Position = UDim2.new(0, 12, 0, 136)
+sliderMain.Position = UDim2.new(0, 12, 0, 195) -- Digeser ke bawah
 sliderMain.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 sliderMain.BorderSizePixel = 0
 sliderMain.Parent = main
@@ -434,74 +642,65 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------
--- FITUR TELEPORT TO ENEMY (TOGGLE SYSTEM)
+-- FITUR AUTO SKILLS (TOGGLE SYSTEM)
 ---------------------------------------------------------
-local isTpEnemyToggled = false
+local function createSkillToggle(name, globVar, yPos)
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(1, -24, 0, 30)
+    btn.Position = UDim2.new(0, 12, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    btn.Text = name .. ": OFF"
+    btn.TextColor3 = Color3.fromRGB(220, 80, 80)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    animStroke(btn, 1)
 
-local tpEnemyBtn = Instance.new("TextButton")
-tpEnemyBtn.Size = UDim2.new(1, -24, 0, 30)
-tpEnemyBtn.Position = UDim2.new(0, 12, 0, 168)
-tpEnemyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-tpEnemyBtn.Text = "TP to Enemy: OFF"
-tpEnemyBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
-tpEnemyBtn.Font = Enum.Font.GothamBold
-tpEnemyBtn.TextSize = 12
-tpEnemyBtn.BorderSizePixel = 0
-tpEnemyBtn.AutoButtonColor = false
-tpEnemyBtn.Parent = main
-Instance.new("UICorner", tpEnemyBtn).CornerRadius = UDim.new(0, 6)
-animStroke(tpEnemyBtn, 1)
-
-local function teleportToNearestEnemy()
-    local lp = Players.LocalPlayer
-    local char = lp.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    local enemiesFolder = getEnemiesFolder()
-    if not enemiesFolder then return end
-    
-    local nearestEnemy = nil
-    local shortestDistance = math.huge
-    
-    for _, enemy in ipairs(enemiesFolder:GetChildren()) do
-        local eRoot = enemy:FindFirstChild("HumanoidRootPart") or enemy:FindFirstChild("Torso") or enemy:FindFirstChild("UpperTorso")
-        local eHum = enemy:FindFirstChildOfClass("Humanoid")
+    btn.MouseButton1Click:Connect(function()
+        _G[globVar] = not _G[globVar]
+        print(name .. " diubah ke: " .. tostring(_G[globVar])) -- DEBUG: Lihat konsol F9
         
-        if eRoot and eHum and eHum.Health > 0 then
-            local distance = (hrp.Position - eRoot.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                nearestEnemy = eRoot
-            end
-        end
-    end
-    
-    if nearestEnemy then
-        hrp.CFrame = nearestEnemy.CFrame * CFrame.new(0, 3, 0)
-    end
+        local state = _G[globVar]
+        btn.Text = name .. (state and ": ON" or ": OFF")
+        btn.TextColor3 = state and Color3.fromRGB(80, 220, 120) or Color3.fromRGB(220, 80, 80)
+        tweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(40, 60, 45) or Color3.fromRGB(35, 35, 40)}):Play()
+    end)
 end
 
--- Thread Loop untuk Auto Teleport saat Toggle ON
+-- Menambahkan tombol ke UI (sesuaikan Y pos berdasarkan tinggi elemen di atasnya)
+createSkillToggle("Auto Punch", "UseQuick", 215)
+createSkillToggle("Auto Subskill", "UseHeavy", 251)
+createSkillToggle("Auto Ultimate", "UseSpecial", 287)
+
+-- [LOOP CORE UNTUK SKILL]
 task.spawn(function()
     while true do
-        task.wait(0.2) -- Loop deteksi jarak musuh terdekat setiap 200ms agar smooth & aman
-        if isTpEnemyToggled then
-            pcall(teleportToNearestEnemy)
+        task.wait(0.1)
+        if (_G.UseQuick or _G.UseHeavy or _G.UseSpecial) then
+            local target = getTarget() -- Menggunakan fungsi getTarget yang sudah benar
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local targetHRP = target.HumanoidRootPart
+                
+                if myHRP then
+                    -- TELEPORT: Pindah ke posisi musuh (sedikit di depan agar tidak tumpang tindih)
+                    myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 2) 
+                    
+                    -- EKSEKUSI SKILL
+                    if _G.UseQuick and os.clock() - lQ >= 0.15 then 
+                        lQ = os.clock() fireWCSSkill(getActiveSkill("Light"), 1) 
+                    end
+                    if _G.UseHeavy and os.clock() - lH >= 2.5 then 
+                        lH = os.clock() fireWCSSkill(getActiveSkill("Heavy"), 1) 
+                    end
+                    if _G.UseSpecial and os.clock() - lS >= 3 then 
+                        lS = os.clock() fireWCSSkill(getActiveSkill("Ultimate"), 1) 
+                    end
+                end
+            end
         end
-    end
-end)
-
-tpEnemyBtn.MouseButton1Click:Connect(function()
-    isTpEnemyToggled = not isTpEnemyToggled
-    if isTpEnemyToggled then
-        tweenService:Create(tpEnemyBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 60, 45)}):Play()
-        tpEnemyBtn.Text = "TP to Enemy: ON"
-        tpEnemyBtn.TextColor3 = Color3.fromRGB(80, 220, 120)
-    else
-        tweenService:Create(tpEnemyBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
-        tpEnemyBtn.Text = "TP to Enemy: OFF"
-        tpEnemyBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
     end
 end)
 
