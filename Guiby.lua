@@ -58,6 +58,46 @@ local function fireWCSSkill(n, c)
         end)
     end
 end
+local function getRedSpawner()
+    local d = workspace:FindFirstChild("Dungeons")
+    local lp = Players.LocalPlayer
+    if not d or not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return nil end
+    local playerPos = lp.Character.HumanoidRootPart.Position
+    local closestSpawner, minDistance = nil, math.huge
+    
+    for _, dungeon in ipairs(d:GetChildren()) do
+        for _, room in ipairs(dungeon:GetChildren()) do
+            local seq = room:FindFirstChild("RoomSequence")
+            if seq and seq:FindFirstChild("Spawners") then
+                for _, s in ipairs(seq.Spawners:GetChildren()) do
+                    if s.Name:find("ClosableSpawner") then
+                        local c = s:FindFirstChild("CaptureZone") and s.CaptureZone:FindFirstChild("Center")
+                        if c and c.Transparency < 1 and c.Color ~= Color3.fromRGB(0, 255, 0) then
+                            local dist = (c.Position - playerPos).Magnitude
+                            if dist < minDistance then minDistance = dist closestSpawner = c end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestSpawner
+end
+
+local function runCloseSpawner()
+    local lp = Players.LocalPlayer
+    local character = lp.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if not rootPart or not humanoid then return end
+    
+    local targetPart = getRedSpawner() -- Menggunakan fungsi spesifik Anda
+    if targetPart then
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        rootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
+    end
+end
 
 -- Hapus UI lama jika ada
 if coreGui:FindFirstChild("AceSniperUI") then
@@ -418,6 +458,49 @@ closeSpawnerBtn.Parent = main
 Instance.new("UICorner", closeSpawnerBtn).CornerRadius = UDim.new(0, 6)
 animStroke(closeSpawnerBtn, 1)
 
+local currentTargetSpawner = nil 
+
+local function runCloseSpawner()
+    local lp = Players.LocalPlayer
+    local character = lp.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    
+    if not rootPart or not humanoid then return end
+
+    -- 1. CEK: Apakah target saat ini masih ada dan belum selesai?
+    if currentTargetSpawner then
+        -- Jika target hilang dari workspace, sudah hijau (selesai), atau transparan (sudah ditutup), lepas kuncinya
+        if not currentTargetSpawner:IsDescendantOf(workspace) or 
+           currentTargetSpawner.Transparency >= 1 or 
+           currentTargetSpawner.Color == Color3.fromRGB(0, 255, 0) then
+            currentTargetSpawner = nil
+        end
+    end
+
+    -- 2. JIKA BELUM ADA TARGET, baru cari yang baru
+    if not currentTargetSpawner then
+        currentTargetSpawner = getRedSpawner()
+    end
+
+    -- 3. EKSEKUSI: Pindah ke target yang terkunci
+    if currentTargetSpawner then
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        -- Posisi sedikit di atas spawner agar presisi
+        rootPart.CFrame = currentTargetSpawner.CFrame + Vector3.new(0, 3.5, 0)
+    end
+end
+
+-- [UPDATE LOOP UTAMA]
+task.spawn(function()
+    while true do
+        -- Interval diperpendek agar lebih responsif saat berpindah ke spawner berikutnya
+        task.wait(0.5) 
+        if isCloseSpawnerToggled then
+            pcall(runCloseSpawner)
+        end
+    end
+end)
 local function isRealActive(part)
     if part.Transparency >= 1 then return false end
     if part.Position.Y < -500 then return false end
@@ -441,9 +524,7 @@ local function getNextActiveCenter(rootPart)
     end
     
     if #targets > 0 then
-        table.sort(targets, function(a, b)
-            return a.dist < b.dist
-        end)
+        table.sort(targets, function(a, b) return a.dist < b.dist end)
         return targets[1].part
     end
     return nil
@@ -459,22 +540,13 @@ local function runCloseSpawner()
     
     local targetPart = getNextActiveCenter(rootPart)
     if targetPart then
-        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        rootPart.RotVelocity = Vector3.new(0, 0, 0)
-        
-        rootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
-        
-        task.wait(0.05)
-        rootPart.Velocity = Vector3.new(0, 0, 0)
-        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-        humanoid.PlatformStand = false
+        rootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 4)
     end
 end
 
 task.spawn(function()
     while true do
-        task.wait(6) -- Berjalan setiap 1 detik jika toggle aktif
+        task.wait(1)
         if isCloseSpawnerToggled then
             pcall(runCloseSpawner)
         end
