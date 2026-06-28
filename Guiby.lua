@@ -62,8 +62,6 @@ local function getRedSpawner()
     local d = workspace:FindFirstChild("Dungeons")
     local lp = Players.LocalPlayer
     if not d or not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return nil end
-    local playerPos = lp.Character.HumanoidRootPart.Position
-    local closestSpawner, minDistance = nil, math.huge
     
     for _, dungeon in ipairs(d:GetChildren()) do
         for _, room in ipairs(dungeon:GetChildren()) do
@@ -72,16 +70,18 @@ local function getRedSpawner()
                 for _, s in ipairs(seq.Spawners:GetChildren()) do
                     if s.Name:find("ClosableSpawner") then
                         local c = s:FindFirstChild("CaptureZone") and s.CaptureZone:FindFirstChild("Center")
+                        -- Ambil yang pertama ditemukan yang:
+                        -- 1. Transparent < 1 (visible)
+                        -- 2. Bukan warna hijau (0, 255, 0) = belum dikerjakan
                         if c and c.Transparency < 1 and c.Color ~= Color3.fromRGB(0, 255, 0) then
-                            local dist = (c.Position - playerPos).Magnitude
-                            if dist < minDistance then minDistance = dist closestSpawner = c end
+                            return c -- Return spawner PERTAMA yang ditemukan (bukan terdekat)
                         end
                     end
                 end
             end
         end
     end
-    return closestSpawner
+    return nil
 end
 
 local function runCloseSpawner()
@@ -95,7 +95,14 @@ local function runCloseSpawner()
     local targetPart = getRedSpawner() -- Menggunakan fungsi spesifik Anda
     if targetPart then
         humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-        rootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
+        
+        -- Instant teleport dengan offset (0, 0, 0 = di tengah spawner)
+        local targetPos = targetPart.CFrame * CFrame.new(0, 0, 0)
+        rootPart.CFrame = targetPos
+        
+        -- Instant velocity: Tambahkan kecepatan instan setelah teleport
+        local direction = (targetPart.Position - rootPart.Position).Unit
+        rootPart.AssemblyLinearVelocity = direction * 100 -- Kecepatan 100 units/second
     end
 end
 
@@ -486,8 +493,12 @@ local function runCloseSpawner()
     -- 3. EKSEKUSI: Pindah ke target yang terkunci
     if currentTargetSpawner then
         humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-        -- Posisi sedikit di atas spawner agar presisi
-        rootPart.CFrame = currentTargetSpawner.CFrame + Vector3.new(0, 3.5, 0)
+        -- Teleport dengan offset
+        rootPart.CFrame = currentTargetSpawner.CFrame * CFrame.new(0, 0, 0)
+        
+        -- 4. INSTANT VELOCITY: Tambahkan kecepatan instant setelah teleport
+        local direction = (currentTargetSpawner.Position - rootPart.Position).Unit
+        rootPart.AssemblyLinearVelocity = direction * 100 -- Kecepatan 100 units/second
     end
 end
 
@@ -508,7 +519,7 @@ local function isRealActive(part)
 end
 
 local function getNextActiveCenter(rootPart)
-    local targets = {}
+    -- Ambil yang PERTAMA ditemukan yang aktif (bukan yang terdekat)
     for _, desc in pairs(workspace:GetDescendants()) do
         if desc.Name == "CaptureZone" then
             local centerPart = desc:FindFirstChild("Center")
@@ -516,16 +527,11 @@ local function getNextActiveCenter(rootPart)
                 if isRealActive(centerPart) then
                     local distance = (centerPart.Position - rootPart.Position).Magnitude
                     if distance > 10 then
-                        table.insert(targets, {part = centerPart, dist = distance})
+                        return centerPart -- Return PERTAMA yang ditemukan (bukan terdekat)
                     end
                 end
             end
         end
-    end
-    
-    if #targets > 0 then
-        table.sort(targets, function(a, b) return a.dist < b.dist end)
-        return targets[1].part
     end
     return nil
 end
@@ -540,7 +546,13 @@ local function runCloseSpawner()
     
     local targetPart = getNextActiveCenter(rootPart)
     if targetPart then
-        rootPart.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 4)
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        -- Teleport dengan CFrame multiplication
+        rootPart.CFrame = targetPart.CFrame * CFrame.new(0, 0, 0)
+        
+        -- Instant velocity: Arah ke spawner dengan kecepatan instant
+        local direction = (targetPart.Position - rootPart.Position).Unit
+        rootPart.AssemblyLinearVelocity = direction * 100 -- Kecepatan 100 units/second
     end
 end
 
