@@ -147,7 +147,7 @@ gui.Name = "AceSniperUI"
 gui.ResetOnSpawn = false
 gui.Parent = coreGui
 
-local FULL_H = 350 -- Dinaikkan dari 210 untuk menampung tombol baru
+local FULL_H = 380 -- Dinaikkan dari 210 untuk menampung tombol baru
 local MINI_H = 42
 
 -- Main Frame
@@ -448,7 +448,7 @@ local closeSpawnerBtn = Instance.new("TextButton")
 closeSpawnerBtn.Size = UDim2.new(1, -24, 0, 30)
 closeSpawnerBtn.Position = UDim2.new(0, 12, 0, 114) -- Ditempatkan di atas WalkSpeed
 closeSpawnerBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-closeSpawnerBtn.Text = "Close Spawner: OFF"
+closeSpawnerBtn.Text = "Close Spawner"
 closeSpawnerBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
 closeSpawnerBtn.Font = Enum.Font.GothamBold
 closeSpawnerBtn.TextSize = 12
@@ -544,27 +544,79 @@ local function runCloseSpawner()
     end
 end
 
-task.spawn(function()
-    while true do
-        task.wait(1)
-        if isCloseSpawnerToggled then
-            pcall(runCloseSpawner)
+-- Tombol ini sekarang tidak lagi bersifat Toggle (ON/OFF), melainkan aksi instan
+closeSpawnerBtn.MouseButton1Click:Connect(function()
+    -- Langsung panggil fungsi teleport 1x
+    pcall(runCloseSpawner)
+    
+    -- Efek visual klik
+    tweenService:Create(closeSpawnerBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 60, 45)}):Play()
+    task.wait(0.2)
+    tweenService:Create(closeSpawnerBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
+end)
+---------------------------------------------------------
+-- FITUR AUTO TELEPORT TRIGGER
+---------------------------------------------------------
+local isTriggerToggled = false
+local triggerBtn = Instance.new("TextButton")
+triggerBtn.Size = UDim2.new(1, -24, 0, 30)
+triggerBtn.Position = UDim2.new(0, 12, 0, 150) -- Sesuaikan posisi agar pas
+triggerBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+triggerBtn.Text = "Teleport to Next Room"
+triggerBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
+triggerBtn.Font = Enum.Font.GothamBold
+triggerBtn.TextSize = 12
+triggerBtn.BorderSizePixel = 0
+triggerBtn.AutoButtonColor = false
+triggerBtn.Parent = main
+Instance.new("UICorner", triggerBtn).CornerRadius = UDim.new(0, 6)
+animStroke(triggerBtn, 1)
+
+local visitedTriggers = {} -- Variabel pelacak agar tidak balik ke belakang
+
+local visitedTriggers = {} -- Variabel pelacak
+
+local function teleportToNearestTrigger()
+    local lp = Players.LocalPlayer
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local nearestTrigger = nil
+    local shortestDistance = math.huge
+
+    -- Cari trigger terdekat yang belum dikunjungi
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj.Name == "Trigger" and obj:IsA("BasePart") and not visitedTriggers[obj] then
+            local dist = (obj.Position - hrp.Position).Magnitude
+            if dist < shortestDistance then
+                shortestDistance = dist
+                nearestTrigger = obj
+            end
         end
     end
+
+    if nearestTrigger then
+        visitedTriggers[nearestTrigger] = true -- Tandai sudah dikunjungi
+        hrp.CFrame = nearestTrigger.CFrame
+        print("Teleport ke: " .. nearestTrigger:GetFullName())
+    else
+        print("Semua Trigger sudah dikunjungi! Reset daftar...")
+        visitedTriggers = {} -- Reset jika semua sudah dikunjungi
+    end
+end
+
+-- Event Klik Tombol
+triggerBtn.MouseButton1Click:Connect(function()
+    -- Langsung panggil fungsi teleport saat tombol diklik
+    teleportToNearestTrigger()
+    
+    -- Efek visual klik agar terasa responsif
+    triggerBtn.BackgroundColor3 = Color3.fromRGB(50, 70, 55)
+    task.wait(0.2)
+    triggerBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 end)
 
-closeSpawnerBtn.MouseButton1Click:Connect(function()
-    isCloseSpawnerToggled = not isCloseSpawnerToggled
-    if isCloseSpawnerToggled then
-        tweenService:Create(closeSpawnerBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40, 60, 45)}):Play()
-        closeSpawnerBtn.Text = "Close Spawner: ON"
-        closeSpawnerBtn.TextColor3 = Color3.fromRGB(80, 220, 120)
-    else
-        tweenService:Create(closeSpawnerBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
-        closeSpawnerBtn.Text = "Close Spawner: OFF"
-        closeSpawnerBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
-    end
-end)
 ---------------------------------------------------------
 -- FITUR Auto Klik Tombol Klaim (UGC CLAIM)
 ---------------------------------------------------------
@@ -573,7 +625,7 @@ local vim = game:GetService("VirtualInputManager")
 
 local autoClickBtn = Instance.new("TextButton")
 autoClickBtn.Size = UDim2.new(1, -24, 0, 30)
-autoClickBtn.Position = UDim2.new(0, 12, 0, 150)
+autoClickBtn.Position = UDim2.new(0, 12, 0, 186)
 autoClickBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40) -- Warna gelap (OFF)
 autoClickBtn.Text = "Auto Klik Tombol Klaim: OFF"
 autoClickBtn.TextColor3 = Color3.fromRGB(220, 80, 80) -- Warna merah (OFF)
@@ -631,7 +683,7 @@ local targetWalkSpeed = 16
 
 local wsLabel = Instance.new("TextLabel")
 wsLabel.Size = UDim2.new(1, -24, 0, 14)
-wsLabel.Position = UDim2.new(0, 12, 0, 180) -- Digeser ke bawah
+wsLabel.Position = UDim2.new(0, 12, 0, 216) -- Digeser ke bawah
 wsLabel.BackgroundTransparency = 1
 wsLabel.Text = "WalkSpeed: 16"
 wsLabel.Font = Enum.Font.GothamBold
@@ -642,7 +694,7 @@ wsLabel.Parent = main
 
 local sliderMain = Instance.new("Frame")
 sliderMain.Size = UDim2.new(1, -24, 0, 6)
-sliderMain.Position = UDim2.new(0, 12, 0, 195) -- Digeser ke bawah
+sliderMain.Position = UDim2.new(0, 12, 0, 231) -- Digeser ke bawah
 sliderMain.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 sliderMain.BorderSizePixel = 0
 sliderMain.Parent = main
@@ -742,9 +794,9 @@ local function createSkillToggle(name, globVar, yPos)
 end
 
 -- Menambahkan tombol ke UI (sesuaikan Y pos berdasarkan tinggi elemen di atasnya)
-createSkillToggle("Auto Punch", "UseQuick", 215)
-createSkillToggle("Auto Subskill", "UseHeavy", 251)
-createSkillToggle("Auto Ultimate", "UseSpecial", 287)
+createSkillToggle("Auto Punch", "UseQuick", 251)
+createSkillToggle("Auto Subskill", "UseHeavy", 287)
+createSkillToggle("Auto Ultimate", "UseSpecial", 322)
 
 -- [LOOP CORE UNTUK SKILL]
 task.spawn(function()
